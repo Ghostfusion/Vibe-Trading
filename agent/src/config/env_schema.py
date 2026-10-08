@@ -247,6 +247,24 @@ class DataConfig(_EnvBase):
     longbridge_access_token: str = Field(alias="LONGBRIDGE_ACCESS_TOKEN", default="")
     etoro_api_key: str = Field(alias="ETORO_API_KEY", default="")
     etoro_user_key: str = Field(alias="ETORO_USER_KEY", default="")
+    # Category-based provider failover layer (``src/data_providers``). Each
+    # provider adapter reads its key through this config — the AST env gate
+    # forbids raw ``os.environ`` reads anywhere outside ``src/config/``.
+    eodhd_api_key: str = Field(alias="EODHD_API_KEY", default="")
+    massive_api_key: str = Field(alias="MASSIVE_API_KEY", default="")
+    twelvedata_api_key: str = Field(alias="TWELVEDATA_API_KEY", default="")
+    stockdata_api_key: str = Field(alias="STOCKDATA_API_KEY", default="")
+    newsapi_api_key: str = Field(alias="NEWSAPI_API_KEY", default="")
+    benzinga_api_key: str = Field(alias="BENZINGA_API_KEY", default="")
+    # moomoo reaches data through a user-owned local OpenD gateway. Distinct from
+    # FUTU_HOST/FUTU_PORT (the same gateway, read by the futu OHLCV loader and
+    # the futu trading connector); the moomoo adapter prefers these and falls
+    # back to the FUTU_* names so one running OpenD serves both layers.
+    moomoo_host: str = Field(alias="MOOMOO_HOST", default="")
+    moomoo_port: int = Field(alias="MOOMOO_PORT", default=0)
+    moomoo_autostart: EnvBool = Field(alias="MOOMOO_AUTOSTART", default=False)
+    moomoo_account: str = Field(alias="MOOMOO_ACCOUNT", default="")
+    moomoo_opend_path: str = Field(alias="MOOMOO_OPEND_PATH", default="")
     # Per-market source-order overrides (Settings page "source priority").
     # Value: comma-separated permutation of the market's default chain, e.g.
     # MARKET_DATA_ORDER_A_SHARE=tushare,tencent,mootdx,... Applied by

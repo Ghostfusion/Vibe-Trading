@@ -80,6 +80,80 @@ Notes:
   returned as an error envelope, never raised, so a single bad symbol never
   aborts a batch.
 
+## Category Provider Chains (`get_category_data`)
+
+A second, coarser routing axis for data several vendors carry (news, fundamentals,
+calendars, options, macro, flows). `get_category_data` asks the first provider in
+the category's chain that can serve it and returns that provider's answer.
+
+The failover rule, which is the whole point of the layer: a provider that refuses
+— HTTP 404/403/429/5xx, an in-band error body (Alpha Vantage answers **200** with
+`Information` for a premium gate), or a local OpenD permission error — is skipped
+for that request and the **next** provider is tried. Nothing is retried; the same
+provider is never asked twice within a request, and two providers' answers are
+never blended. `explain=true` lists the chain and every provider's state
+(`ready` / `unconfigured` / `unimplemented`) without spending a request, and the
+envelope of a normal call carries the full attempt trace.
+
+The operator's priority order per category (a fenced block on purpose: these are
+category names, not OHLCV source names, and the Source Overview guard test reads
+bare first-column identifiers in tables as source names):
+
+```text
+core_stock_apis      eodhd > moomoo > yfinance > tiingo > twelve_data > stockdata > benzinga
+news_data            eodhd > benzinga > moomoo > yfinance > alpha_vantage > stockdata > newsapi
+fundamental_data     moomoo > yfinance > tiingo > alpha_vantage
+analyst_ratings      moomoo > finnhub > yfinance > benzinga
+earnings_calendar    moomoo > finnhub > yfinance > benzinga
+technical_indicators moomoo > yfinance > alpha_vantage
+options_data         moomoo > yfinance
+short_interest       moomoo > yfinance
+institution_data     moomoo > yfinance
+macro_data           fred > moomoo
+prediction_markets   polymarket > moomoo
+corporate_actions    eodhd > moomoo > benzinga
+news_sentiment       eodhd > alpha_vantage > gdelt
+sec_filings          sec_edgar
+risk_free_curve      federal_reserve
+options_surface      cboe
+exchange_symbols     eodhd
+equity_screener      yfinance
+market_movers        yfinance
+capital_flow         moomoo
+earnings_catalyst    moomoo
+earnings_surprise    moomoo
+economic_calendar    moomoo
+expected_move        moomoo
+fed_watch            moomoo
+market_breadth       moomoo
+revenue_breakdown    moomoo
+smart_money          moomoo
+analyst_actions      benzinga
+fda_calendar         benzinga
+guidance_revisions   benzinga
+news_retractions     benzinga
+offerings_calendar   benzinga
+```
+
+Notes:
+- The list above is the operator's stated priority order, **not** a measured
+  quality ranking, and it is not env-overridable. (The backtest OHLCV chains are the other
+  axis and *are* reorderable via `MARKET_DATA_ORDER_<MARKET>`; that knob does not
+  touch these chains.)
+- `src/data_providers/categories.py` is the authority. Providers measured to
+  serve a category but not named in this priority order are appended **after**
+  it (`CATEGORY_CHAIN_EXTENSIONS`), so the stated order is never reshuffled —
+  call `get_category_data(explain=true)` for a category's effective chain and
+  each provider's current state (`ready` / `unconfigured` / `unimplemented`).
+- Not every provider in a chain implements every category it appears under; an
+  unimplemented slot is reported as `unimplemented` and skipped, never served as
+  an empty result.
+- A provider named in a chain with no adapter, or an adapter with no
+  implementation for that category, is reported as `unimplemented` — never as an
+  empty result.
+- Provider credentials and per-provider request spacing are documented in
+  `agent/.env.example` ("Category-based provider failover").
+
 ## Decision Tree
 
 ### Backtest scenario (writing config.json)
